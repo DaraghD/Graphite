@@ -1061,11 +1061,44 @@ impl ShapeState {
 		}
 	}
 
-	/// Swaps selected handles to
+	/// Selects handles and anchor connected to current handle
+	pub fn select_handles_and_anchor(&mut self, network_interface: &NodeNetworkInterface) {
+		let mut anchor_and_handles_to_select = Vec::new();
+		// if selected is anchor
+		// if selected is handle with no pair
+		// if selected is handle with pair
+		// ^^^ cover all these in the same way,
+
+		for (&layer, _) in &self.selected_shape_state {
+			let Some(vector_data) = network_interface.compute_modified_vector(layer) else {
+				continue;
+			};
+
+			for point in self.selected_points() {
+				if let Some(handles) = point.get_handle_pair(&vector_data) {
+					let anchor = handles[0].to_manipulator_point().get_anchor(&vector_data);
+					//handle[0] is selected, handle[1] is other
+					anchor_and_handles_to_select.push((layer, handles[1].to_manipulator_point(), anchor));
+				}
+			}
+		}
+
+		for (layer, handle, anchor) in anchor_and_handles_to_select {
+			if let Some(state) = self.selected_shape_state.get_mut(&layer) {
+				state.select_point(handle);
+				match anchor {
+					Some(anchor) => state.select_point(ManipulatorPointId::Anchor(anchor)),
+					None => continue,
+				}
+			}
+		}
+	}
+	/// Alternates selected handles between mirror and original
 	pub fn alternate_selected_handles(&mut self, network_interface: &NodeNetworkInterface) {
 		let mut handles_to_update = Vec::new();
 
 		for (&layer, _) in &self.selected_shape_state {
+			//opt: if selected points in layer == 0, continue benchmark this?
 			let Some(vector_data) = network_interface.compute_modified_vector(layer) else {
 				continue;
 			};
